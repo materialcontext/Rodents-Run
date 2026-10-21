@@ -1,76 +1,81 @@
 // Drawing: the 23×23 field, the HUD strip (spare lives, stopwatch, score)
-// and the game-over melt. The field is redrawn only when it changes.
+// and the game-over melt.
+//
+// Built to cost next to nothing per frame. The field and the lives are drawn
+// at the original's own resolution (16 pixels a tile, 368×368 for the
+// field) and enlarged by the compositor with nearest-neighbour scaling, so a
+// step redraws a few 16×16 tiles and the browser copies a 0.5 MB canvas
+// rather than one the size of the screen. Each part redraws only when what
+// it shows has changed.
 
 import { ART, FORM, PALETTE, T, buildTiles } from "./sprites.js";
 import { FIELD_SIZE } from "./core.js";
 
 const SPARE_SLOTS = 5;
+const FIELD_PX = FIELD_SIZE * ART;
 
 export function createRenderer({ board, lives, clock, score }) {
-  const g = board.getContext("2d");
-  let tile = 0;
-  let tiles = new Map();
-  let hudTiles = new Map();
-  let last = null; // field bytes last drawn
-  let lastHud = "";
+  board.width = board.height = FIELD_PX;
+  const g = board.getContext("2d", { alpha: false });
+  const tiles = buildTiles(ART);
+
+  lives.width = SPARE_SLOTS * ART;
+  lives.height = ART;
+  const lg = lives.getContext("2d", { alpha: false });
+  const hudTiles = buildTiles(ART, FORM);
+
+  const last = new Uint8Array(FIELD_SIZE * FIELD_SIZE); // field as last drawn
+  let fieldValid = false;
+  let lastSpare = -1;
+  let lastClock = "";
+  let lastScore = -1;
   let melting = false;
 
-  function fitCanvas(canvas, cssW, cssH) {
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    canvas.style.width = `${cssW}px`;
-    canvas.style.height = `${cssH}px`;
-  }
+  // Device pixels for a CSS length, so canvases land on whole pixels.
+  const dpr = () => window.devicePixelRatio || 1;
 
-  // Sizes the board to the largest whole-pixel tile that fits its box,
-  // preferring an exact multiple of the 16-pixel art (every art pixel the
-  // same size) when that gives up little room.
+  // The field fills its box. When a whole number of screen pixels per art
+  // pixel fits with little room lost, use exactly that, so every art pixel
+  // is the same size.
   function resize() {
-    const dpr = window.devicePixelRatio || 1;
     const box = board.parentElement.getBoundingClientRect();
-    const avail = Math.max(64, Math.min(box.width, box.height));
-    tile = Math.max(4, Math.floor((avail * dpr) / FIELD_SIZE));
-    const exact = Math.floor(tile / ART) * ART;
-    if (exact >= ART && exact >= tile * 0.85) tile = exact;
-    const px = tile * FIELD_SIZE;
-    board.width = board.height = px;
-    board.style.width = board.style.height = `${px / dpr}px`;
-    tiles = buildTiles(tile);
+    let device = Math.floor(Math.max(64, Math.min(box.width, box.height)) * dpr());
+    const whole = Math.floor(device / FIELD_PX) * FIELD_PX;
+    if (whole >= FIELD_PX && whole >= device * 0.85) device = whole;
+    board.style.width = board.style.height = `${device / dpr()}px`;
 
     const lb = lives.parentElement.getBoundingClientRect();
     const hudTile = Math.max(12, Math.floor(Math.min(lb.height * 0.62, (lb.width - 8) / SPARE_SLOTS)));
-    fitCanvas(lives, hudTile * SPARE_SLOTS, hudTile);
-    hudTiles = buildTiles(Math.round(hudTile * dpr), FORM);
+    lives.style.width = `${hudTile * SPARE_SLOTS}px`;
+    lives.style.height = `${hudTile}px`;
 
+    // The stopwatch is drawn with smooth lines, so at screen resolution.
     const cb = clock.parentElement.getBoundingClientRect();
     const size = Math.max(28, Math.floor(Math.min(cb.width, cb.height) - 4));
-    fitCanvas(clock, size, size);
-    last = null;
-    lastHud = "";
+    const px = Math.round(size * dpr());
+    if (clock.width !== px) {
+      clock.width = clock.height = px;
+      clock.style.width = clock.style.height = `${size}px`;
+      lastClock = "";
+    }
   }
 
   function drawField(field) {
     if (melting) return;
     const n = FIELD_SIZE;
-    for (let y = 0; y < n; y++) {
-      for (let x = 0; x < n; x++) {
-        const i = y * n + x;
-        const id = field[i];
-        if (last && last[i] === id) continue;
-        const img = tiles.get(id) ?? tiles.get(T.OPEN);
-        g.drawImage(img, x * tile, y * tile);
-      }
+    for (let i = 0; i < n * n; i++) {
+      const id = field[i];
+      if (fieldValid && last[i] === id) continue;
+      last[i] = id;
+      g.drawImage(tiles.get(id) ?? tiles.get(T.OPEN), (i % n) * ART, ((i / n) | 0) * ART);
     }
-    last = Uint8Array.from(field);
+    fieldValid = true;
   }
 
   function drawLives(spare) {
-    const lg = lives.getContext("2d");
-    const s = lives.width / SPARE_SLOTS;
-    for (let i = 0; i < SPARE_SLOTS; i++) {
-      lg.drawImage(hudTiles.get(i < spare ? T.GUY_GREY : T.GREY), Math.round(i * s), 0, Math.round(s), lives.height);
-    }
+    if (spare === lastSpare) return;
+    lastSpare = spare;
+    for (let i = 0; i < SPARE_SLOTS; i++) lg.drawImage(hudTiles.get(i < spare ? T.GUY_GREY : T.GREY), i * ART, 0);
   }
 
   // The stopwatch: the hour hand counts levels, the minute hand runs once
@@ -130,12 +135,17 @@ export function createRenderer({ board, lives, clock, score }) {
   }
 
   function drawHud(st) {
-    const key = `${st.lives}|${st.minute}|${st.second}|${st.nextWave}|${st.level}|${st.mode}|${st.score}`;
-    if (key === lastHud) return;
-    lastHud = key;
     drawLives(Math.min(SPARE_SLOTS, Math.max(0, st.lives - 1)));
-    drawClock(st);
-    score.textContent = Math.floor(st.score).toLocaleString("en-US");
+    const clockKey = `${st.minute}|${st.second}|${st.nextWave}|${st.level}|${st.mode === 1}`;
+    if (clockKey !== lastClock) {
+      lastClock = clockKey;
+      drawClock(st);
+    }
+    const points = Math.floor(st.score);
+    if (points !== lastScore) {
+      lastScore = points;
+      score.textContent = points.toLocaleString("en-US");
+    }
   }
 
   // FldMelt: the field slides away in uneven columns, left to right.
@@ -180,10 +190,7 @@ export function createRenderer({ board, lives, clock, score }) {
     melt,
     endMelt() {
       melting = false;
-      last = null;
-    },
-    get tileCss() {
-      return tile / (window.devicePixelRatio || 1);
+      fieldValid = false;
     },
   };
 }

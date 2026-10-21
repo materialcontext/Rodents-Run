@@ -69,6 +69,13 @@ The page drives the core like the original's timer control: it calls
 `tick()` every `tick_ms()` milliseconds, forwards each move to `input()`,
 and draws the 23 × 23 tile grid the core exposes.
 
+It is built to run on very modest hardware. The field is drawn at the
+original's resolution (368 × 368) and scaled up by the compositor, so a step
+redraws a few 16 × 16 tiles. Nothing runs between ticks and inputs: the
+game timer stops when paused or on the title screen, and frames are only
+requested when something changed. The pad's highlight moves on compositor
+layers without repainting.
+
 ## Credits
 
 Rodent's Revenge was created by Christopher Lee Fraley and published by

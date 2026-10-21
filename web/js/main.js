@@ -24,7 +24,6 @@ core.init(settings.speed, settings.startLevel);
 
 const renderer = createRenderer({ board: $("board"), lives: $("lives"), clock: $("clock"), score: $("score") });
 
-let dirty = true;
 let pausedByDialog = false;
 let gameOver = null; // the running game-over sequence
 let continueGameOver = null; // resolves the "Game Over" wait
@@ -38,21 +37,24 @@ function update(patch) {
   if ("startLevel" in patch) core.setStartLevel(settings.startLevel);
   if ("padSide" in patch) app.dataset.pad = settings.padSide;
   if ("desktopPad" in patch) app.dataset.desktopPad = settings.desktopPad ? "on" : "off";
-  dirty = true;
+  if ("speed" in patch) armTimer(); // a new speed applies at once, as in the original
+  requestDraw();
 }
 
 function newGame() {
   if (gameOver) return;
   input.releaseAll();
   core.newGame();
-  dirty = true;
+  armTimer();
+  requestDraw();
 }
 
 function setPaused(paused) {
   if (!isPlaying() || gameOver) return;
   core.setPaused(paused);
   if (paused) input.releaseAll();
-  dirty = true;
+  else armTimer();
+  requestDraw();
 }
 
 const ui = createUI({
@@ -74,8 +76,9 @@ const ui = createUI({
     } else if (pausedByDialog) {
       pausedByDialog = false;
       core.setPaused(false);
+      armTimer();
     }
-    dirty = true;
+    requestDraw();
   },
 });
 
@@ -92,7 +95,6 @@ function handleEvents(ev) {
   else if (ev & EVENT.CHEESE) vibrate(15);
   else if (ev & EVENT.PUSH) vibrate(8);
   if (ev & EVENT.GAME_OVER) gameOver = runGameOver();
-  dirty = true;
 }
 
 function onStep(dir) {
@@ -131,7 +133,7 @@ function onAction(name) {
       return setPaused(!st.paused);
     case "skip-level":
       core.skipLevel();
-      dirty = true;
+      requestDraw();
       return;
     case "start":
     case "tap":
@@ -186,7 +188,7 @@ async function runGameOver() {
   core.takeEvents();
   renderer.endMelt();
   gameOver = null;
-  dirty = true;
+  requestDraw();
 }
 
 // ---- drawing ----
@@ -222,9 +224,21 @@ const WORDS = {
 };
 let words = coarse && !desktop ? WORDS.touch : WORDS.desktop;
 
+// Drawing happens only when something changed: straight away for a step,
+// otherwise on the next animation frame. With nothing changing, no frames
+// are requested at all.
+let drawQueued = false;
+function requestDraw() {
+  if (drawQueued) return;
+  drawQueued = true;
+  requestAnimationFrame(() => {
+    drawQueued = false;
+    draw();
+  });
+}
+
 let lastStatus = "";
 function draw() {
-  dirty = false;
   const st = core.state();
   renderer.draw(core.field(), st);
 
@@ -245,26 +259,34 @@ function draw() {
 }
 
 // ---- the game timer (the original's `t` timer control) ----
+// A plain timer re-armed after every tick with the interval the game asks
+// for. It aims at each tick's due time, so a slow device doesn't drift. It
+// stops while paused, on the title screen and during game over, so an idle
+// game costs nothing.
 
-let nextTick = performance.now() + core.tickMs();
-function frame(now) {
-  if (gameOver) {
-    nextTick = now + core.tickMs();
-  } else if (now >= nextTick) {
-    const ms = core.tick();
-    nextTick += ms;
-    if (now - nextTick > 200) nextTick = now + ms; // fell behind (hidden tab)
-    handleEvents(core.takeEvents());
-    dirty = true;
-  }
-  if (dirty) draw();
-  requestAnimationFrame(frame);
+let tickTimer = 0;
+let due = 0;
+function armTimer(ms = core.tickMs(), fromDue = false) {
+  clearTimeout(tickTimer);
+  const now = performance.now();
+  due = fromDue && now - due < 200 ? due + ms : now + ms;
+  tickTimer = setTimeout(onTick, Math.max(0, due - now));
+}
+
+function onTick() {
+  tickTimer = 0;
+  const st = core.state();
+  if (gameOver || st.paused || st.mode === MODE.DEMO) return;
+  const ms = core.tick();
+  handleEvents(core.takeEvents());
+  requestDraw();
+  if (!gameOver) armTimer(ms, true);
 }
 
 function layout() {
   renderer.resize();
-  dirty = true;
   lastStatus = "";
+  requestDraw();
 }
 new ResizeObserver(layout).observe(app);
 desktopQuery.addEventListener("change", (e) => {
@@ -273,7 +295,6 @@ desktopQuery.addEventListener("change", (e) => {
   layout();
 });
 layout();
-requestAnimationFrame(frame);
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
@@ -281,7 +302,7 @@ document.addEventListener("visibilitychange", () => {
     if (isPlaying() && !gameOver) core.setPaused(true);
   }
   lastStatus = "";
-  dirty = true;
+  requestDraw();
 });
 
 if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.RODENT_WASM) {

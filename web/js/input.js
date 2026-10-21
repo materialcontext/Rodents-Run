@@ -80,6 +80,30 @@ function el(name, attrs, parent) {
 }
 
 // The pad: a bevelled grey disc, eight wedges with arrows, a dead centre.
+// The disc is drawn once and never repaints. The pressed wedge is one of
+// two overlays (a straight one and a diagonal one), each on its own layer,
+// that the compositor turns to the direction and shows or hides, so
+// pressing costs no painting at all.
+const INNER = 30;
+const OUTER = 89;
+
+function wedgePath(d) {
+  const a0 = ((d - 0.5) * Math.PI) / 4 - Math.PI / 2;
+  const a1 = ((d + 0.5) * Math.PI) / 4 - Math.PI / 2;
+  const p = (r, a) => `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`;
+  return `M${p(INNER, a0)} L${p(OUTER, a0)} A${OUTER} ${OUTER} 0 0 1 ${p(OUTER, a1)} L${p(INNER, a1)} A${INNER} ${INNER} 0 0 0 ${p(INNER, a0)}Z`;
+}
+
+function arrowPoints(d) {
+  const a = (d * Math.PI) / 4 - Math.PI / 2;
+  const r = d % 2 ? 64 : 62;
+  const s = d % 2 ? 10 : 12;
+  const cx = r * Math.cos(a);
+  const cy = r * Math.sin(a);
+  const pts = [a, a + 2.3, a - 2.3].map((t) => [cx + s * Math.cos(t), cy + s * Math.sin(t)]);
+  return pts.map((q) => q.map((v) => v.toFixed(2)).join(",")).join(" ");
+}
+
 function buildPad(host) {
   const svg = el("svg", { viewBox: "-100 -100 200 200", class: "pad-svg", "aria-hidden": "true" });
   const defs = el("defs", {}, svg);
@@ -89,42 +113,38 @@ function buildPad(host) {
   el("stop", { offset: "1", "stop-color": "#404040" }, bevel);
   el("circle", { r: 98, fill: "url(#padBevel)" }, svg);
   el("circle", { r: 91, fill: "#c0c0c0", stroke: "#000", "stroke-width": 1.5 }, svg);
-
-  const wedges = [];
-  const inner = 30;
-  const outer = 89;
   for (let d = 0; d < 8; d++) {
-    const a0 = ((d - 0.5) * Math.PI) / 4 - Math.PI / 2;
-    const a1 = ((d + 0.5) * Math.PI) / 4 - Math.PI / 2;
-    const p = (r, a) => `${(r * Math.cos(a)).toFixed(2)} ${(r * Math.sin(a)).toFixed(2)}`;
-    const path = `M${p(inner, a0)} L${p(outer, a0)} A${outer} ${outer} 0 0 1 ${p(outer, a1)} L${p(inner, a1)} A${inner} ${inner} 0 0 0 ${p(inner, a0)}Z`;
-    const g = el("g", { class: `wedge ${d % 2 ? "diag" : "card"}` }, svg);
-    el("path", { d: path, class: "wedge-bg" }, g);
-    const a = (d * Math.PI) / 4 - Math.PI / 2;
-    const r = d % 2 ? 64 : 62;
-    const s = d % 2 ? 10 : 12;
-    const cx = r * Math.cos(a);
-    const cy = r * Math.sin(a);
-    const tip = [cx + s * Math.cos(a), cy + s * Math.sin(a)];
-    const l = [cx + s * Math.cos(a + 2.3), cy + s * Math.sin(a + 2.3)];
-    const rr = [cx + s * Math.cos(a - 2.3), cy + s * Math.sin(a - 2.3)];
-    el("polygon", { points: [tip, l, rr].map((q) => q.map((v) => v.toFixed(2)).join(",")).join(" "), class: "arrow" }, g);
-    wedges.push(g);
-  }
-  for (let d = 0; d < 8; d++) {
+    el("polygon", { points: arrowPoints(d), fill: d % 2 ? "#404040" : "#000" }, svg);
     const a = ((d + 0.5) * Math.PI) / 4 - Math.PI / 2;
     el("line", {
-      x1: inner * Math.cos(a), y1: inner * Math.sin(a), x2: outer * Math.cos(a), y2: outer * Math.sin(a),
+      x1: INNER * Math.cos(a), y1: INNER * Math.sin(a), x2: OUTER * Math.cos(a), y2: OUTER * Math.sin(a),
       stroke: "#808080", "stroke-width": 1.2,
     }, svg);
   }
-  el("circle", { r: inner, fill: "url(#padBevel)" }, svg);
-  el("circle", { r: inner - 5, fill: "#c0c0c0" }, svg);
-  host.replaceChildren(svg);
+  el("circle", { r: INNER, fill: "url(#padBevel)" }, svg);
+  el("circle", { r: INNER - 5, fill: "#c0c0c0" }, svg);
+
+  // Overlays for north (straight) and north-east (diagonal), turned as needed.
+  const overlay = (d) => {
+    const o = el("svg", { viewBox: "-100 -100 200 200", class: "pad-hl", "aria-hidden": "true" });
+    el("path", { d: wedgePath(d), fill: "#000080" }, o);
+    el("polygon", { points: arrowPoints(d), fill: "#fff" }, o);
+    return o;
+  };
+  const straight = overlay(0);
+  const diagonal = overlay(1);
+  host.replaceChildren(svg, straight, diagonal);
+
+  let shown = -1;
   return {
     svg,
     show(dir) {
-      wedges.forEach((w, i) => w.classList.toggle("on", i === dir));
+      if (dir === shown) return;
+      shown = dir;
+      const diag = dir % 2 === 1;
+      straight.style.opacity = dir >= 0 && !diag ? "1" : "0";
+      diagonal.style.opacity = diag ? "1" : "0";
+      if (dir >= 0) (diag ? diagonal : straight).style.transform = `rotate(${(dir - (dir % 2)) * 45}deg)`;
     },
   };
 }
@@ -158,8 +178,9 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
   // ---- thumb pad ----
   const padRep = repeater(onStep, repeat);
   let padPointer = null;
+  let padRect = null; // measured once per touch: reading layout mid-gesture is slow
   const padDir = (e) => {
-    const r = pad.svg.getBoundingClientRect();
+    const r = padRect;
     const dx = e.clientX - (r.left + r.width / 2);
     const dy = e.clientY - (r.top + r.height / 2);
     const dead = (r.width / 2) * 0.26;
@@ -175,6 +196,7 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
   deck.addEventListener("pointerdown", (e) => {
     if (padPointer !== null || e.target.closest("button")) return;
     padPointer = e.pointerId;
+    padRect = pad.svg.getBoundingClientRect();
     deck.setPointerCapture(e.pointerId);
     padUpdate(e);
     e.preventDefault();
@@ -194,8 +216,9 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
 
   // ---- mouse: walk toward the pointer ----
   let aim = null; // { id, x, y, timer }
+  let boardRect = null; // measured once per press
   const aimDir = () => {
-    const r = board.getBoundingClientRect();
+    const r = boardRect;
     const cell = r.width / 23;
     const { x, y } = mouseCell();
     const dx = aim.x - (r.left + (x + 0.5) * cell);
@@ -214,6 +237,7 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
   };
   function aimStart(e) {
     aim = { id: e.pointerId, x: e.clientX, y: e.clientY, timer: 0 };
+    boardRect = board.getBoundingClientRect();
     board.setPointerCapture(e.pointerId);
     const d = aimDir();
     // A click on the mouse itself starts, resumes or continues, like a tap.
@@ -235,7 +259,7 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
   let swipe = null; // { id, x, y, moved, t }
   // A little under one cell of travel per step, so the mouse keeps up with
   // the finger, but never so short that a tap jitters.
-  const stepLength = () => Math.max(14, Math.min(32, (board.getBoundingClientRect().width / 23) * 0.85));
+  const stepLength = () => Math.max(14, Math.min(32, (boardRect.width / 23) * 0.85));
   board.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") {
       if (e.button === 0 && !aim) aimStart(e);
@@ -244,6 +268,7 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
     }
     if (swipe) return;
     swipe = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false, t: performance.now() };
+    boardRect = board.getBoundingClientRect();
     board.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
