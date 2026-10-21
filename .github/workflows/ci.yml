@@ -40,5 +40,27 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # Pages must publish from this workflow; set to "Deploy from a branch"
+      # it shows the README instead of the game.
+      - name: Check Pages publishes from GitHub Actions
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const fix = "In the repository's Settings > Pages, set Source to \"GitHub Actions\", then re-run this workflow.";
+            let site;
+            try {
+              ({ data: site } = await github.rest.repos.getPages({ owner, repo }));
+            } catch {
+              core.setFailed(`GitHub Pages is not enabled. ${fix}`);
+              return;
+            }
+            if (site.build_type === "workflow") return;
+            try {
+              await github.rest.repos.updateInformationAboutPagesSite({ owner, repo, build_type: "workflow" });
+              core.notice("Switched GitHub Pages to publish from GitHub Actions.");
+            } catch {
+              core.setFailed(`GitHub Pages is set to "Deploy from a branch", so the site shows the README, not the game. ${fix}`);
+            }
       - id: deploy
         uses: actions/deploy-pages@v4
