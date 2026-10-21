@@ -110,6 +110,10 @@ function onStep(dir) {
   }
   core.input(dir);
   handleEvents(core.takeEvents());
+  // Draw now, inside the input event, so the step shows on the very next
+  // frame. (A plain step raises no event, so waiting for one would leave it
+  // undrawn until the cats' next tick.)
+  draw();
 }
 
 function onAction(name) {
