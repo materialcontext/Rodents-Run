@@ -276,6 +276,104 @@ button { font: inherit; color: inherit; }
   .pad { width: min(88cqw, 86cqh, 260px); }
 }
 
+/* ---- computers: a centred window with a menu bar, as big as the screen allows ---- */
+
+.menubar { display: none; }
+
+/* Must match desktopQuery in js/main.js. */
+@media (hover: hover) and (pointer: fine) and (min-width: 720px) and (min-height: 540px) {
+  :root { --cap: 30px; --menu: 26px; --hud: 64px; --min-deck: 0px; }
+  .window {
+    --deck-w: 0px;
+    --board: min(
+      calc(var(--vh) - 44px - var(--cap) - var(--menu) - var(--hud) - 2 * var(--gap)),
+      calc(100vw - 64px - var(--deck-w))
+    );
+    inset: auto;
+    left: 50%;
+    top: 50%;
+    width: auto;
+    transform: translate(-50%, -50%);
+    padding: 0;
+    grid-template:
+      "cap cap" var(--cap)
+      "menu menu" var(--menu)
+      "hud hud" var(--hud)
+      "field deck" auto
+      / auto auto;
+    border: 4px solid var(--silver);
+    outline: 1px solid var(--black);
+    box-shadow: 0 0 0 5px var(--black);
+  }
+  .window[data-desktop-pad="on"] { --deck-w: 236px; }
+  .window[data-desktop-pad="off"] .deck { display: none; }
+  .caption h1 { font-size: 15px; }
+  .sysbox, .capbtn { cursor: default; }
+  .sysbox:hover, .capbtn:hover { background: #d4d4d4; }
+  .field { width: var(--board); height: var(--board); margin: var(--gap); }
+  .deck { width: var(--deck-w); padding: 12px; border-left: 1px solid var(--gray); }
+  .pad { width: 208px; }
+  #board { cursor: crosshair; }
+  .label strong { font-size: 24px; }
+  .label span { font-size: 15px; }
+
+  .menubar {
+    grid-area: menu;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 0 4px;
+    background: var(--white);
+    border-bottom: 1px solid var(--black);
+    font-size: 14px;
+  }
+  .mb-item { position: relative; display: flex; }
+  .mb-title {
+    margin: 0;
+    padding: 0 9px;
+    border: 0;
+    background: transparent;
+    cursor: default;
+  }
+  .mb-title[aria-expanded="true"], .mb-title:focus-visible { background: var(--navy); color: var(--white); outline: 0; }
+  .mb-drop {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 20;
+    min-width: 200px;
+    display: grid;
+    padding: 2px 0;
+    background: var(--white);
+    border: 1px solid var(--black);
+    box-shadow: 2px 2px 0 var(--black);
+  }
+  .mb-drop[hidden] { display: none; }
+  .mb-drop button {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    margin: 0;
+    padding: 4px 16px 4px 24px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    white-space: nowrap;
+    cursor: default;
+    position: relative;
+  }
+  .mb-drop button:hover, .mb-drop button:focus-visible { background: var(--navy); color: var(--white); outline: 0; }
+  .mb-drop button[disabled] { color: var(--gray); }
+  .mb-drop button[disabled]:hover { background: transparent; color: var(--gray); }
+  .mb-drop button[aria-checked="true"]::before {
+    content: "\2713";
+    position: absolute;
+    left: 8px;
+  }
+  .mb-drop kbd { font: inherit; }
+  .mb-drop hr { margin: 3px 0; border: 0; border-top: 1px solid var(--gray); }
+}
+
 /* ---- dialogs (Win 3.1 style) ---- */
 
 .dlg {
@@ -388,3 +486,9 @@ legend { padding: 0 4px; }
 .about { text-align: center; }
 
 .noscript { color: var(--white); padding: 24px; }
+
+/* Mouse-sized controls in dialogs on computers. */
+@media (hover: hover) and (pointer: fine) and (min-width: 720px) and (min-height: 540px) {
+  .dlg button, .seg button { min-height: 32px; cursor: default; }
+  .check { min-height: 32px; }
+}

@@ -1,18 +1,25 @@
-// Menus and dialogs: the game menu, controls, high scores, name entry.
+// Menus and dialogs: the menu bar (computers), the game menu (phones),
+// controls, starting level, high scores, name entry.
 
 import { SPEED_NAMES, loadScores } from "./store.js";
 
 const $ = (id) => document.getElementById(id);
 
 export function createUI({ settings, update, actions, onModal }) {
-  const dialogs = ["menuDlg", "controlsDlg", "scoresDlg", "nameDlg", "helpDlg", "aboutDlg"].map($);
+  const dialogs = ["menuDlg", "levelDlg", "controlsDlg", "scoresDlg", "nameDlg", "helpDlg", "aboutDlg"].map($);
+
+  // Open menus and dialogs hold the game paused; the last to close lets go.
   let open = 0;
+  const hold = () => {
+    if (open++ === 0) onModal(true);
+  };
+  const release = () => {
+    open = Math.max(0, open - 1);
+    if (open === 0) onModal(false);
+  };
 
   for (const dlg of dialogs) {
-    dlg.addEventListener("close", () => {
-      open = Math.max(0, open - 1);
-      if (open === 0) onModal(false);
-    });
+    dlg.addEventListener("close", release);
     // Tapping the backdrop closes, as tapping outside a sheet does.
     dlg.addEventListener("click", (e) => {
       if (e.target === dlg && dlg.id !== "nameDlg") dlg.close();
@@ -22,9 +29,24 @@ export function createUI({ settings, update, actions, onModal }) {
 
   function show(dlg) {
     if (dlg.open) return;
-    if (open === 0) onModal(true);
-    open++;
+    hold();
     dlg.showModal();
+  }
+
+  // ---- starting level ----
+  const levelOut = $("levelOut");
+  const syncLevel = () => {
+    levelOut.textContent = String(settings().startLevel + 1);
+  };
+  const stepLevel = (d) => {
+    update({ startLevel: Math.min(49, Math.max(0, settings().startLevel + d)) });
+    syncLevel();
+  };
+  $("levelDown").addEventListener("click", () => stepLevel(-1));
+  $("levelUp").addEventListener("click", () => stepLevel(1));
+  function showLevel() {
+    syncLevel();
+    show($("levelDlg"));
   }
 
   // ---- game menu ----
@@ -151,7 +173,117 @@ export function createUI({ settings, update, actions, onModal }) {
     });
   }
 
+  // ---- menu bar (computers) ----
+  // Behaves like a Windows menu bar: click a title to drop its menu, slide
+  // across titles while one is open, arrow keys to move, Esc or a click
+  // elsewhere to close, Alt+underlined letter or F10 to open from the keyboard.
+  const bar = $("menubar");
+  const items = [...bar.querySelectorAll(".mb-item")];
+  const titleOf = (i) => items[i].querySelector(".mb-title");
+  const dropOf = (i) => items[i].querySelector(".mb-drop");
+  const entriesOf = (i) => [...dropOf(i).querySelectorAll("button:not([disabled])")];
+  let current = -1;
+
+  const commands = {
+    "new-game": () => actions.newGame(),
+    pause: () => actions.togglePause(),
+    scores: () => showScores(),
+    level: () => showLevel(),
+    controls: () => {
+      syncControls();
+      show($("controlsDlg"));
+    },
+    help: () => show($("helpDlg")),
+    about: () => show($("aboutDlg")),
+  };
+
+  function syncBar() {
+    const s = settings();
+    bar.querySelectorAll("[data-speed]").forEach((b) => b.setAttribute("aria-checked", String(+b.dataset.speed === s.speed)));
+    bar.querySelectorAll("[data-toggle]").forEach((b) => b.setAttribute("aria-checked", String(!!s[b.dataset.toggle])));
+    const pause = $("mbPause");
+    pause.disabled = !actions.canResume();
+    pause.querySelector("span").textContent = actions.isPaused() ? "Continue" : "Pause";
+  }
+
+  function closeDrop(i) {
+    dropOf(i).hidden = true;
+    titleOf(i).setAttribute("aria-expanded", "false");
+  }
+  function openDrop(i, focusFirst) {
+    i = (i + items.length) % items.length;
+    if (current === i) return;
+    if (current < 0) hold();
+    else closeDrop(current);
+    current = i;
+    syncBar();
+    dropOf(i).hidden = false;
+    titleOf(i).setAttribute("aria-expanded", "true");
+    if (focusFirst) entriesOf(i)[0]?.focus();
+    else titleOf(i).focus({ preventScroll: true });
+  }
+  function closeBar() {
+    if (current < 0) return;
+    closeDrop(current);
+    current = -1;
+    document.activeElement?.blur?.();
+    release();
+  }
+
+  items.forEach((_, i) => {
+    const t = titleOf(i);
+    t.addEventListener("click", () => (current === i ? closeBar() : openDrop(i, false)));
+    t.addEventListener("pointerenter", () => {
+      if (current >= 0 && current !== i) openDrop(i, false);
+    });
+    dropOf(i).addEventListener("click", (e) => {
+      const b = e.target.closest("button");
+      if (!b || b.disabled) return;
+      closeBar();
+      if (b.dataset.speed) update({ speed: +b.dataset.speed });
+      else if (b.dataset.toggle) update({ [b.dataset.toggle]: !settings()[b.dataset.toggle] });
+      else commands[b.dataset.cmd]?.();
+    });
+  });
+  document.addEventListener("pointerdown", (e) => {
+    if (current >= 0 && !bar.contains(e.target)) closeBar();
+  });
+  bar.addEventListener("keydown", (e) => {
+    if (current < 0) return;
+    const list = entriesOf(current);
+    const at = list.indexOf(document.activeElement);
+    const keys = {
+      ArrowDown: () => list[(at + 1) % list.length]?.focus(),
+      ArrowUp: () => list[(at - 1 + list.length) % list.length]?.focus(),
+      ArrowRight: () => openDrop(current + 1, true),
+      ArrowLeft: () => openDrop(current - 1, true),
+      Escape: () => closeBar(),
+      Tab: () => closeBar(),
+    };
+    if (keys[e.key]) {
+      keys[e.key]();
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  });
+  window.addEventListener("keydown", (e) => {
+    if (open > 0 && current < 0) return; // a dialog has the keyboard
+    const letter = { g: 0, o: 1, h: 2 }[e.key.toLowerCase()];
+    if ((e.altKey && letter !== undefined) || (e.key === "F10" && !e.shiftKey)) {
+      openDrop(letter ?? 0, true);
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }, true);
+
   return {
+    openBar(i = 0) {
+      openDrop(i, true);
+    },
+    closeBar,
+    get barOpen() {
+      return current >= 0;
+    },
     openMenu() {
       syncMenu();
       show(menu);

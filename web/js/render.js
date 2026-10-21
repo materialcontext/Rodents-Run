@@ -1,7 +1,7 @@
 // Drawing: the 23×23 field, the HUD strip (spare lives, stopwatch, score)
 // and the game-over melt. The field is redrawn only when it changes.
 
-import { FORM, PALETTE, T, buildTiles } from "./sprites.js";
+import { ART, FORM, PALETTE, T, buildTiles } from "./sprites.js";
 import { FIELD_SIZE } from "./core.js";
 
 const SPARE_SLOTS = 5;
@@ -23,12 +23,16 @@ export function createRenderer({ board, lives, clock, score }) {
     canvas.style.height = `${cssH}px`;
   }
 
-  // Sizes the board to the largest whole-pixel tile that fits its box.
+  // Sizes the board to the largest whole-pixel tile that fits its box,
+  // preferring an exact multiple of the 16-pixel art (every art pixel the
+  // same size) when that gives up little room.
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     const box = board.parentElement.getBoundingClientRect();
     const avail = Math.max(64, Math.min(box.width, box.height));
     tile = Math.max(4, Math.floor((avail * dpr) / FIELD_SIZE));
+    const exact = Math.floor(tile / ART) * ART;
+    if (exact >= ART && exact >= tile * 0.85) tile = exact;
     const px = tile * FIELD_SIZE;
     board.width = board.height = px;
     board.style.width = board.style.height = `${px / dpr}px`;

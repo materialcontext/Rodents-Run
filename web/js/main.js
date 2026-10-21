@@ -1,5 +1,6 @@
-// Wiring: the game timer, input, drawing, the game-over sequence, and the
-// phone niceties (auto-pause when hidden, keep the screen awake, haptics).
+// Wiring: the game timer, input, drawing, the game-over sequence, the
+// phone niceties (auto-pause when hidden, keep the screen awake, haptics)
+// and the computer layout (menu bar, mouse, optional pad).
 
 import { EVENT, MODE, loadCore } from "./core.js";
 import { createInput } from "./input.js";
@@ -10,9 +11,13 @@ import { createUI } from "./ui.js";
 const $ = (id) => document.getElementById(id);
 const app = $("app");
 const coarse = matchMedia("(pointer: coarse)").matches;
+// Must match the desktop media query in style.css.
+const desktopQuery = matchMedia("(hover: hover) and (pointer: fine) and (min-width: 720px) and (min-height: 540px)");
+let desktop = desktopQuery.matches;
 
 let settings = loadSettings();
 app.dataset.pad = settings.padSide;
+app.dataset.desktopPad = settings.desktopPad ? "on" : "off";
 
 const core = await loadCore();
 core.init(settings.speed, settings.startLevel);
@@ -32,6 +37,7 @@ function update(patch) {
   if ("speed" in patch) core.setSpeed(settings.speed);
   if ("startLevel" in patch) core.setStartLevel(settings.startLevel);
   if ("padSide" in patch) app.dataset.pad = settings.padSide;
+  if ("desktopPad" in patch) app.dataset.desktopPad = settings.desktopPad ? "on" : "off";
   dirty = true;
 }
 
@@ -52,7 +58,12 @@ function setPaused(paused) {
 const ui = createUI({
   settings: () => settings,
   update,
-  actions: { newGame, canResume: () => isPlaying() && !gameOver },
+  actions: {
+    newGame,
+    canResume: () => isPlaying() && !gameOver,
+    isPaused: () => core.state().paused,
+    togglePause: () => setPaused(!core.state().paused),
+  },
   onModal(open) {
     if (open) {
       input.releaseAll();
@@ -85,6 +96,7 @@ function handleEvents(ev) {
 }
 
 function onStep(dir) {
+  if (continueGameOver) return continueGameOver();
   if (gameOver || ui.modal) return;
   const st = core.state();
   if (st.mode === MODE.DEMO) {
@@ -101,7 +113,11 @@ function onStep(dir) {
 }
 
 function onAction(name) {
-  if (name === "menu") return ui.toggleMenu();
+  if (name === "menu") {
+    if (ui.barOpen) return ui.closeBar();
+    if (desktop && !ui.modal) return ui.openBar(0);
+    return ui.toggleMenu();
+  }
   if (ui.modal) return;
   const st = core.state();
   switch (name) {
@@ -126,6 +142,10 @@ const input = createInput({
   padHost: $("pad"),
   board: $("board"),
   settings: () => settings,
+  mouseCell: () => {
+    const st = core.state();
+    return { x: st.mouseX, y: st.mouseY };
+  },
   onStep,
   onAction,
 });
@@ -152,7 +172,7 @@ async function runGameOver() {
     addScore(entry);
     await ui.showScores(entry);
   } else {
-    showLabel("Game Over", coarse ? "Tap to continue." : "Press Enter to continue.");
+    showLabel("Game Over", words.continueGame);
     await new Promise((resolve) => {
       continueGameOver = resolve;
     });
@@ -191,6 +211,13 @@ async function syncWakeLock(want) {
   }
 }
 
+// What the on-field messages tell you to press.
+const WORDS = {
+  touch: { start: "Tap to start", resume: "Tap to continue.", continueGame: "Tap to continue." },
+  desktop: { start: "Press F2 or click to start", resume: "Press F3 or click to continue.", continueGame: "Click or press Enter to continue." },
+};
+let words = coarse && !desktop ? WORDS.touch : WORDS.desktop;
+
 let lastStatus = "";
 function draw() {
   dirty = false;
@@ -206,8 +233,8 @@ function draw() {
   pauseBtn.setAttribute("aria-label", st.paused ? "Continue" : "Pause");
   pauseBtn.disabled = !isPlaying(st);
   if (!gameOver) {
-    if (st.mode === MODE.DEMO) showLabel("Rodent's Revenge", coarse ? "Tap to start" : "Press F2 to start");
-    else if (st.paused) showLabel("Paused.", coarse ? "Tap to continue." : "Press F3 to continue.");
+    if (st.mode === MODE.DEMO) showLabel("Rodent's Revenge", words.start);
+    else if (st.paused) showLabel("Paused.", words.resume);
     else showLabel("", "");
   }
   syncWakeLock(isPlaying(st) && !st.paused && !gameOver && document.visibilityState === "visible");
@@ -236,6 +263,11 @@ function layout() {
   lastStatus = "";
 }
 new ResizeObserver(layout).observe(app);
+desktopQuery.addEventListener("change", (e) => {
+  desktop = e.matches;
+  words = coarse && !desktop ? WORDS.touch : WORDS.desktop;
+  layout();
+});
 layout();
 requestAnimationFrame(frame);
 

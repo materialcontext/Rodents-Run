@@ -15,18 +15,22 @@ Push blocks to trap the cats. When every cat is stuck they turn into
 cheese; eat it. More cats arrive each time the stopwatch's minute hand
 reaches the blue mark. Trap them all after the last batch to clear the level.
 
-| | Touch | Keyboard |
+| | Touch | Keyboard and mouse |
 |---|---|---|
 | Move (8 ways) | Thumb pad: touch anywhere around it and slide to aim; hold to keep walking | Arrows / numpad, Home PgUp End PgDn for diagonals; or WASD + QEZC |
-| Move, alternative | Swipe on the field: each short drag is one step | |
-| New game | Tap the field on the title screen, or Menu → New Game | F2 |
+| Move, alternative | Swipe on the field: each short drag is one step | Press on the field: the mouse steps toward the pointer; hold to keep walking |
+| New game | Tap the field on the title screen, or Menu → New Game | F2, or click the field on the title screen |
 | Pause | ❚❚ button (also automatic when you leave the app) | F3 or P |
-| Menu | ▬ button (top left) | Esc |
+| Menu | ▬ button (top left) | The Game / Options / Help menu bar; Alt+G/O/H, F10 or Esc |
 
-The menu has the original's five speeds (Snail … Blazing) and starting
-level (1–50). Controls lets you put the pad left, centre or right, tune
-hold-to-repeat, and turn swipes and vibration on or off. Landscape puts the
-field in the middle with the pad at the side.
+On a phone the menu has the original's five speeds (Snail … Blazing) and
+starting level (1–50); Controls lets you put the pad left, centre or right,
+tune hold-to-repeat, and turn swipes and vibration on or off. Landscape puts
+the field in the middle with the pad at the side.
+
+On a computer the game is a Windows 3.1 window with the original's menu bar,
+sized to fill the screen with the pixel art kept crisp. Options → Direction
+Pad shows the pad beside the field for mouse-only play.
 
 Add it to your home screen for full-screen, offline play.
 
@@ -47,8 +51,10 @@ This writes:
 - `dist/rodents-revenge.html`, one self-contained file that runs from disk.
 
 `cargo test` runs the rules tests. Pushes to `main` build and deploy the
-site to GitHub Pages (enable Pages with source "GitHub Actions" in the
-repository settings).
+site to GitHub Pages. Pages must publish from the workflow: in the
+repository's Settings → Pages, set Source to **GitHub Actions** ("Deploy from
+a branch" publishes the README instead). The deploy job checks this and
+fails with that instruction if it is set wrong.
 
 ## Layout
 

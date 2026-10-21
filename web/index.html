@@ -23,6 +23,41 @@
     <button id="pauseBtn" class="capbtn" aria-label="Pause" title="Pause (F3)"><span class="pause-glyph"></span></button>
   </header>
 
+  <!-- The window's menu bar; shown on computers with a mouse. -->
+  <nav id="menubar" class="menubar" role="menubar" aria-label="Menu">
+    <div class="mb-item">
+      <button class="mb-title" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-menu="game"><u>G</u>ame</button>
+      <div class="mb-drop" role="menu" hidden>
+        <button role="menuitem" data-cmd="new-game"><span>New</span><kbd>F2</kbd></button>
+        <button role="menuitem" data-cmd="pause" id="mbPause"><span>Pause</span><kbd>F3</kbd></button>
+        <hr>
+        <button role="menuitem" data-cmd="scores"><span>High Scores&hellip;</span></button>
+      </div>
+    </div>
+    <div class="mb-item">
+      <button class="mb-title" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-menu="options"><u>O</u>ptions</button>
+      <div class="mb-drop" role="menu" hidden>
+        <button role="menuitemradio" data-speed="0"><span>Snail</span></button>
+        <button role="menuitemradio" data-speed="1"><span>Slow</span></button>
+        <button role="menuitemradio" data-speed="2"><span>Medium</span></button>
+        <button role="menuitemradio" data-speed="3"><span>Fast</span></button>
+        <button role="menuitemradio" data-speed="4"><span>Blazing</span></button>
+        <hr>
+        <button role="menuitem" data-cmd="level"><span>Starting Level&hellip;</span></button>
+        <button role="menuitemcheckbox" data-toggle="desktopPad"><span>Direction Pad</span></button>
+        <button role="menuitem" data-cmd="controls"><span>Controls&hellip;</span></button>
+      </div>
+    </div>
+    <div class="mb-item">
+      <button class="mb-title" role="menuitem" aria-haspopup="menu" aria-expanded="false" data-menu="help"><u>H</u>elp</button>
+      <div class="mb-drop" role="menu" hidden>
+        <button role="menuitem" data-cmd="help"><span>How to Play</span></button>
+        <hr>
+        <button role="menuitem" data-cmd="about"><span>About Rodent's Revenge&hellip;</span></button>
+      </div>
+    </div>
+  </nav>
+
   <section class="hud" aria-label="Status">
     <div class="hud-cell hud-lives"><canvas id="lives" aria-label="Spare lives"></canvas></div>
     <div class="hud-cell hud-clock"><canvas id="clock" aria-label="Level clock"></canvas></div>
@@ -69,6 +104,19 @@
   <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
 </dialog>
 
+<dialog id="levelDlg" class="dlg">
+  <div class="dlg-caption">Starting Level</div>
+  <div class="dlg-body">
+    <p class="note">New games start on this level (1&ndash;50).</p>
+    <div class="stepper">
+      <button id="levelDown" aria-label="Lower starting level">&minus;</button>
+      <output id="levelOut">1</output>
+      <button id="levelUp" aria-label="Higher starting level">+</button>
+    </div>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
 <dialog id="controlsDlg" class="dlg">
   <div class="dlg-caption">Controls</div>
   <div class="dlg-body">
@@ -94,6 +142,8 @@
     <label class="check"><input type="checkbox" id="hapticChk"> Vibrate on pushes and catches</label>
     <p class="note">Keyboard: arrows or numpad, Home/PgUp/End/PgDn for diagonals
       (or W A S D with Q E Z C). F2 new game, F3 pause.</p>
+    <p class="note">Mouse: press on the field and the mouse steps toward the
+      pointer; hold the button to keep walking.</p>
   </div>
   <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
 </dialog>
@@ -139,6 +189,11 @@
     <p>Use the pad: touch anywhere in the area around it and slide your thumb
       to aim, including diagonals. Hold to keep walking. Or swipe across the
       field: each short drag is one step.</p>
+    <h3>Keyboard and mouse</h3>
+    <p>Arrow keys or the numeric keypad move; Home, PgUp, End and PgDn move
+      diagonally (W A S D with Q E Z C work too). F2 starts a new game and F3
+      pauses. Or press on the field: the mouse steps toward the pointer, and
+      keeps walking while you hold the button.</p>
   </div>
   <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
 </dialog>

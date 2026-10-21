@@ -1,6 +1,6 @@
 // Offline play: cache the game on first visit, serve from cache after,
 // refreshing in the background so a new version arrives on the next launch.
-const CACHE = "rodent-v1";
+const CACHE = "rodent-v2";
 const FILES = [
   "./", "index.html", "style.css", "rodent.wasm", "manifest.webmanifest", "icon.svg",
   "js/main.js", "js/core.js", "js/input.js", "js/render.js", "js/sprites.js", "js/store.js", "js/ui.js",

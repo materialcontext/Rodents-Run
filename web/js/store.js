@@ -15,6 +15,7 @@ export const DEFAULT_SETTINGS = {
   swipe: true, // drag on the board to move
   repeat: "normal", // held direction: off | slow | normal | fast
   haptics: true,
+  desktopPad: false, // computers: show the direction pad beside the field
   lastName: "",
 };
 
