@@ -159,7 +159,8 @@ button { font: inherit; color: inherit; }
 .hud-lives { justify-content: flex-start; }
 .hud-clock { justify-content: center; width: var(--hud); }
 .hud-score { justify-content: flex-end; }
-#lives, #clock { display: block; image-rendering: pixelated; }
+#lives, #clock { display: block; }
+#lives { image-rendering: crisp-edges; image-rendering: pixelated; }
 #score {
   font: 700 calc(var(--hud) * 0.46) / 1 Arial, Helvetica, var(--ui-font);
   font-variant-numeric: tabular-nums;
@@ -186,8 +187,8 @@ button { font: inherit; color: inherit; }
 }
 #board {
   display: block;
+  image-rendering: crisp-edges; /* older Firefox */
   image-rendering: pixelated;
-  image-rendering: crisp-edges;
   touch-action: none;
   outline: 1px solid var(--black);
 }
@@ -233,12 +234,17 @@ button { font: inherit; color: inherit; }
 }
 .window[data-pad="left"] .deck { justify-items: start; }
 .window[data-pad="right"] .deck { justify-items: end; }
+.pad { position: relative; }
 .pad-svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.wedge-bg { fill: transparent; transition: fill 60ms; }
-.wedge .arrow { fill: var(--black); }
-.wedge.diag .arrow { fill: var(--dark); }
-.wedge.on .wedge-bg { fill: var(--navy); }
-.wedge.on .arrow { fill: var(--white); }
+/* The pressed wedge: composited layers, turned and shown without repainting. */
+.pad-hl {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  will-change: transform, opacity;
+}
 
 /* ---- landscape phones: the field in the middle, pad at one side ---- */
 
