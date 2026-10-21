@@ -1,0 +1,8 @@
+[package]
+name = "rodent-core"
+description = "Rules of Rodent's Revenge (1991), platform independent"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

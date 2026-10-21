@@ -1,0 +1,14 @@
+{
+  "name": "Rodent's Revenge",
+  "short_name": "Rodent's",
+  "description": "A faithful, touch-friendly remake of Rodent's Revenge (1991).",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#008080",
+  "theme_color": "#000080",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#000080">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Rodent's Revenge">
+<meta name="description" content="A faithful, touch-friendly remake of Rodent's Revenge (Microsoft Entertainment Pack, 1991).">
+<title>Rodent's Revenge</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app" class="window" data-pad="center">
+  <header class="caption">
+    <button id="menuBtn" class="sysbox" aria-label="Game menu" title="Menu (Esc)"><span class="sysbar"></span></button>
+    <h1 id="title">Rodent's Revenge</h1>
+    <button id="pauseBtn" class="capbtn" aria-label="Pause" title="Pause (F3)"><span class="pause-glyph"></span></button>
+  </header>
+
+  <section class="hud" aria-label="Status">
+    <div class="hud-cell hud-lives"><canvas id="lives" aria-label="Spare lives"></canvas></div>
+    <div class="hud-cell hud-clock"><canvas id="clock" aria-label="Level clock"></canvas></div>
+    <div class="hud-cell hud-score"><output id="score" aria-label="Score">0</output></div>
+  </section>
+
+  <main class="field">
+    <canvas id="board" aria-label="Playing field"></canvas>
+    <div id="label" class="label" hidden>
+      <strong id="label1"></strong>
+      <span id="label2"></span>
+    </div>
+  </main>
+
+  <footer id="deck" class="deck" aria-label="Direction pad">
+    <div id="pad" class="pad"></div>
+  </footer>
+</div>
+
+<dialog id="menuDlg" class="dlg">
+  <div class="dlg-caption">Game</div>
+  <div class="dlg-body menu-list">
+    <button data-act="new-game">New Game<kbd>F2</kbd></button>
+    <button data-act="resume" id="resumeItem">Continue<kbd>F3</kbd></button>
+    <hr>
+    <fieldset class="speed" aria-label="Speed">
+      <legend>Speed</legend>
+      <div class="seg" id="speedSeg"></div>
+    </fieldset>
+    <fieldset aria-label="Starting level">
+      <legend>Starting level</legend>
+      <div class="stepper">
+        <button data-act="level-down" aria-label="Lower starting level">&minus;</button>
+        <output id="startLevel">1</output>
+        <button data-act="level-up" aria-label="Higher starting level">+</button>
+      </div>
+    </fieldset>
+    <hr>
+    <button data-act="controls">Controls&hellip;</button>
+    <button data-act="scores">High Scores&hellip;</button>
+    <button data-act="help">How to Play&hellip;</button>
+    <button data-act="about">About&hellip;</button>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
+<dialog id="controlsDlg" class="dlg">
+  <div class="dlg-caption">Controls</div>
+  <div class="dlg-body">
+    <fieldset>
+      <legend>Direction pad</legend>
+      <div class="seg" id="padSeg">
+        <button data-pad="left">Left</button>
+        <button data-pad="center">Centre</button>
+        <button data-pad="right">Right</button>
+      </div>
+      <p class="note">In landscape the pad sits on the left or right edge.</p>
+    </fieldset>
+    <fieldset>
+      <legend>Hold to repeat</legend>
+      <div class="seg" id="repeatSeg">
+        <button data-repeat="off">Off</button>
+        <button data-repeat="slow">Slow</button>
+        <button data-repeat="normal">Normal</button>
+        <button data-repeat="fast">Fast</button>
+      </div>
+    </fieldset>
+    <label class="check"><input type="checkbox" id="swipeChk"> Swipe on the field to move</label>
+    <label class="check"><input type="checkbox" id="hapticChk"> Vibrate on pushes and catches</label>
+    <p class="note">Keyboard: arrows or numpad, Home/PgUp/End/PgDn for diagonals
+      (or W A S D with Q E Z C). F2 new game, F3 pause.</p>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
+<dialog id="scoresDlg" class="dlg">
+  <div class="dlg-caption">Rodent's Revenge High Scores</div>
+  <div class="dlg-body scores">
+    <section><h2>Best Overall</h2><ol id="allTime"></ol></section>
+    <section><h2>Past 24 Hours</h2><ol id="today"></ol></section>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
+<dialog id="nameDlg" class="dlg">
+  <div class="dlg-caption">New High Score</div>
+  <form method="dialog" class="dlg-body">
+    <p>You scored <b id="nameScore">0</b> on level <b id="nameLevel">1</b>.</p>
+    <label class="name">Your name:
+      <input id="nameInput" maxlength="24" autocomplete="nickname" enterkeyhint="done" spellcheck="false">
+    </label>
+    <div class="dlg-foot"><button value="ok" class="default">OK</button></div>
+  </form>
+</dialog>
+
+<dialog id="helpDlg" class="dlg">
+  <div class="dlg-caption">How to Play</div>
+  <div class="dlg-body prose">
+    <p>You are the mouse. Push the <b>blocks</b> to trap the <b>cats</b>.
+      Walk into a block to push it, and the whole row behind it moves, as long
+      as there is room at the far end. Walls never move.</p>
+    <p>When <b>every</b> cat on the board is stuck at the same time, they all
+      turn into <b>cheese</b>. Eat it for 100 points (25 more for each level
+      after the first).</p>
+    <p>The <b>stopwatch</b> runs for the whole level. When the minute hand
+      reaches the <span class="blue">blue mark</span> more cats arrive.
+      Trapping all the cats races the clock on to the next batch; trap them
+      after the last batch and the level is won, with a bonus.</p>
+    <p>Later levels add <b>sink holes</b> (they hold you for a moment, and
+      swallow pushed blocks), <b>mouse traps</b> (deadly) and <b>balls of
+      yarn</b> that lurk in the walls and roll at you.</p>
+    <p>You have three mice. Faster speeds and quick trapping score more.</p>
+    <h3>Touch</h3>
+    <p>Use the pad: touch anywhere in the area around it and slide your thumb
+      to aim, including diagonals. Hold to keep walking. Or swipe across the
+      field: each short drag is one step.</p>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
+<dialog id="aboutDlg" class="dlg">
+  <div class="dlg-caption">About Rodent's Revenge</div>
+  <div class="dlg-body prose about">
+    <p><b>Rodent's Revenge</b><br>A remake for phones and browsers.</p>
+    <p>The original was written by Christopher Lee Fraley and released by
+      Microsoft in Entertainment Pack 2 (1991). Its rules here follow the
+      original program's logic as recovered from its code; the graphics are
+      new drawings in the same style.</p>
+    <p>Game rules in Rust, compiled to WebAssembly.</p>
+  </div>
+  <div class="dlg-foot"><button data-act="close" class="default">OK</button></div>
+</dialog>
+
+<noscript><p class="noscript">Rodent's Revenge needs JavaScript.</p></noscript>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
