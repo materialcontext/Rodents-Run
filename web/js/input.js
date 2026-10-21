@@ -14,11 +14,14 @@
 
 export const DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
 
+// Held-direction timing. The original rode the keyboard's typematic repeat,
+// which on Windows defaults to a short delay and then about 30 steps a
+// second; "fast" matches that, "normal" is a touch gentler for thumbs.
 export const REPEAT = {
   off: null,
-  slow: { delay: 380, every: 190 },
-  normal: { delay: 300, every: 125 },
-  fast: { delay: 230, every: 85 },
+  slow: { delay: 350, every: 110 },
+  normal: { delay: 220, every: 55 },
+  fast: { delay: 180, every: 33 },
 };
 
 const KEYS = {
@@ -230,8 +233,9 @@ export function createInput({ deck, padHost, board, settings, mouseCell, onStep,
   // ---- board swipes ----
   const swipeRep = repeater(onStep, repeat);
   let swipe = null; // { id, x, y, moved, t }
-  // About one cell of travel per step, never so short that a tap jitters.
-  const stepLength = () => Math.max(20, Math.min(40, (board.getBoundingClientRect().width / 23) * 1.15));
+  // A little under one cell of travel per step, so the mouse keeps up with
+  // the finger, but never so short that a tap jitters.
+  const stepLength = () => Math.max(14, Math.min(32, (board.getBoundingClientRect().width / 23) * 0.85));
   board.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") {
       if (e.button === 0 && !aim) aimStart(e);
