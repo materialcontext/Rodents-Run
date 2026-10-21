@@ -1,0 +1,12 @@
+[package]
+name = "rodent-wasm"
+description = "C-ABI WebAssembly bindings for rodent-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+rodent-core = { path = "../core" }
